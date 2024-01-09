@@ -6,14 +6,6 @@ class Student:
 			return self.__student_id
 	def get_name(self):
 			return self.__student_name
-	def set_id(self, student_id):
-			if len(self.__student_id) == 8 and student_id.isnumeric():
-				self.__student_id = student_id
-	def set_name(self, student_name):
-			if student_name:
-				self.__student_name = student_name
-	id = property(get_id, set_id)
-	name = property(get_name, set_name)
 
 class Subject:
 	def __init__(self,subject_id, subject_name, credit):
@@ -26,22 +18,10 @@ class Subject:
 			return self.__subject_name
 	def get_credit(self):
 			return self.__credit
-	def set_id(self, subject_id):
-			if subject_id.isnumeric():
-				self.__subject_id = subject_id
-	def set_name(self, subject_name):
-			if subject_name:
-				self.__subject_name = subject_name
-	def set_credit(self, credit):
-			if credit >= 0:
-				self.__credit = credit
 	def assign_teacher(self, teacher):
 		self.__teacher = teacher
 	def get_teacher(self):
 		return self.__teacher
-	id = property(get_id, set_id)
-	name = property(get_name, set_name)
-	credit = property(get_credit, set_credit)
 
 class Teacher:
 	def __init__(self, teacher_id, teacher_name):
@@ -51,14 +31,6 @@ class Teacher:
 			return self.__teacher_id
 	def get_name(self):
 			return self.__teacher_name
-	def set_id(self, teacher_id):
-		if teacher_id:
-			self.__teacher_id = teacher_id
-	def set_name(self, teacher_name):
-		if teacher_name:
-			self.__teacher_name = teacher_name
-	id = property(get_id, set_id)
-	name = property(get_name, set_name)
 
 class Enrollment:
 	def __init__(self, student, subject, grade=None):
@@ -74,6 +46,12 @@ class Enrollment:
 	def set_grade(self, grade):
 		if grade:
 			self.__grade = grade
+	def __eq__(self, other):
+		return (
+			isinstance(other, Enrollment)
+			and self.get_student() == other.get_student()
+			and self.get_subject() == other.get_subject()
+		)
 
 student_list = []
 subject_list = []
@@ -84,11 +62,11 @@ enrollment_list = []
 
 # TODO 1 : function สำหรับค้นหา instance ของวิชาใน subject_list
 def search_subject_by_id(subject_id):
-	return [subject for subject in subject_list if subject.get_id == subject_id]
+	return [subject for subject in subject_list if subject.get_id() == subject_id]
 
 # TODO 2 : function สำหรับค้นหา instance ของนักศึกษาใน student_list
 def search_student_by_id(student_id):
-	return [student for student in student_list if student.get_id == student_id]
+	return [student for student in student_list if student.get_id() == student_id]
 
 # TODO 3 : function สำหรับสร้างการลงทะเบียน โดยรับ instance ของ student และ subject
 def enroll_to_subject(student, subject):
@@ -98,16 +76,16 @@ def enroll_to_subject(student, subject):
 	for enrollment in enrollment_list:
 		if enrollment_record == enrollment:
 			return "Already Enrolled"
-		else:
-			enrollment_list.append(enrollment_record)
-			return "Done"
+
+	enrollment_list.append(enrollment_record)
+	return "Done"
 
 # TODO 4 : function สำหรับลบการลงทะเบียน โดยรับ instance ของ student และ subject
 def drop_from_subject(student, subject):
 	if not isinstance(student, Student) and not isinstance(subject, Subject):
 		return "Error"
 	for enrollment in enrollment_list:
-		if student in enrollment.student and subject in enrollment.subject:
+		if student == enrollment.get_student() and subject == enrollment.get_subject():
 			enrollment_list.remove(enrollment)
 			return "Done"
 		return "Not Found"
@@ -134,19 +112,20 @@ def search_subject_that_student_enrolled(student):
 
 # TODO 8 : function สำหรับใส่เกรดลงในการลงทะเบียน โดยรับ instance ของ student และ subject
 def assign_grade(student, subject, grade):
-	enrollment = search_enrollment_subject_student(subject, student)
-	if isinstance(grade, str) and enrollment.get_grade() is None and enrollment:
-		enrollment.set_grade(grade)
-		return "Done"
-	elif enrollment.get_grade() is not None and enrollment:
-		return "Error"
-	else:
+	enrollments = search_enrollment_subject_student(subject, student)
+	if not enrollments:
 		return "Not Found"
+	for enrollment in enrollments:
+		if isinstance(grade, str) and enrollment.get_grade() is None:
+			enrollment.set_grade(grade)
+			return "Done"
+	return "Error"
+
 
 # TODO 9 : function สำหรับคืน instance ของอาจารย์ที่สอนในวิชา
 def get_teacher_teach(subject_search):
-	result = [subject.get_teacher().get_name() for subject in subject_search if subject == subject_search]
-	return result if result else "Not Found"
+	result = [subject.get_teacher() for subject in subject_list if subject == subject_search]
+	return result[0] if result else "Not Found"
 
 # TODO 10 : function สำหรับค้นหาจำนวนของนักศึกษาที่ลงทะเบียนในรายวิชา โดยรับ instance ของ subject
 def get_no_of_student_enrolled(subject):
@@ -158,8 +137,8 @@ def get_no_of_student_enrolled(subject):
 def get_student_record(student):
 	result = {}
 	for enrollment in enrollment_list:
-		if enrollment.get_student() == student and enrollment.get_grade() is not None:
-			result = {enrollment.get_subject().get_id(): [enrollment.get_subject().get_name(), enrollment.get_subject().get_grade()]}
+		if enrollment.get_student() == student:
+			result[enrollment.get_subject().get_id()] = [enrollment.get_subject().get_name(), enrollment.get_grade()]
 	return result
 
 # แปลงจาก เกรด เป็นตัวเลข
@@ -183,23 +162,25 @@ def get_student_GPS(student):
 # ค้นหานักศึกษาลงทะเบียน โดยรับเป็น รหัสวิชา และคืนค่าเป็น dictionary {รหัส นศ. : ชื่อ นศ.}
 def list_student_enrolled_in_subject(subject_id):
 	subject = search_subject_by_id(subject_id)
-	if subject is None:
+	if not subject:
 		return "Subject not found"
-	filter_student_list = search_student_enroll_in_subject(subject)
+	filter_student_list = search_student_enroll_in_subject(subject[0])
 	student_dict = {}
-	for enrollment in filter_student_list:
-		student_dict[enrollment.student.student_id] = enrollment.student.student_name
+	for student in filter_student_list:
+		if isinstance(student, Student):
+			student_dict[student.get_id()] = student.get_name()
 	return student_dict
+
 
 # ค้นหาวิชาที่นักศึกษาลงทะเบียน โดยรับเป็น รหัสนักศึกษา และคืนค่าเป็น dictionary {รหัสวิชา : ชื่อวิชา }
 def list_subject_enrolled_by_student(student_id):
 	student = search_student_by_id(student_id)
 	if student is None:
 		return "Student not found"
-	filter_subject_list = self.search_subject_that_student_enrolled(student)
+	filter_subject_list = search_subject_that_student_enrolled(student)
 	subject_dict = {}
 	for enrollment in filter_subject_list:
-		subject_dict[enrollment.subject.subject_id] = enrollment.subject.subject_name
+		subject_dict[enrollment.get_subject().get_id()] = enrollment.get_subject().get_name()
 	return subject_dict
 
 #######################################################################################
@@ -289,14 +270,14 @@ print("")
 print("Test case #6 : test drop_from_subject in case of drop successful")
 print("Answer : {'66010002': 'Khadijah Burton', '66010003': 'Jean Caldwell', '66010004': 'Jayden Mccall', '66010005': 'Owain Johnston', '66010007': 'Frances Haynes'}")
 drop_from_subject(student_list[0], subject_list[0])
-print(list_student_enrolled_in_subject(subject_list[0].subject_id))
+print(list_student_enrolled_in_subject(subject_list[0].get_id()))
 print("")
 
 ### Test case #7 : test search_student_enrolled_in_subject
 print("Test case #7 : test search_student_enrolled_in_subject")
 print("Answer : ['66010002','66010003','66010004','66010005','66010007']")
 lst = search_student_enroll_in_subject(subject_list[0])
-print([i.student.student_id for i in lst])
+print([i.get_id() for i in lst])
 print("")
 
 ### Test case #8 : get_no_of_student_enrolled
@@ -309,20 +290,20 @@ print("")
 print("Test case #9 search_subject_that_student_enrolled")
 print("Answer : ['CS102','CS103']")
 lst = search_subject_that_student_enrolled(student_list[0])
-print([i.subject.subject_id for i in lst])
+print([i.get_id() for i in lst])
 print("")
 
 ### Test case #10 : get_teacher_teach
 print("Test case #10 get_teacher_teach")
 print("Answer : Mr. Welsh")
-print(get_teacher_teach(subject_list[0]).teacher_name)
+print(get_teacher_teach(subject_list[0]).get_name())
 print("")
 
 ### Test case #11 : search_enrollment_subject_student
 print("Test case #11 search_enrollment_subject_student")
 print("Answer : CS101 66010002")
 enroll = search_enrollment_subject_student(subject_list[0],student_list[1])
-print(enroll.subject.subject_id,enroll.student.student_id)
+print(enroll[0].get_subject().get_id(),enroll[0].get_student().get_id())
 print("")
 
 ### Test case #12 : assign_grade
