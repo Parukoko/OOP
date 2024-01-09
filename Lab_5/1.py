@@ -25,10 +25,7 @@ class Subject:
 
 class Teacher:
 	def __init__(self, teacher_id, teacher_name):
-			self.__teacher_id = teacher_id
 			self.__teacher_name = teacher_name
-	def get_id(self):
-			return self.__teacher_id
 	def get_name(self):
 			return self.__teacher_name
 
